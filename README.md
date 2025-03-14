@@ -1,4 +1,10 @@
 
+
+# GitHub Actions y ChatBot para la automatización de despliegues:
+
+![Screenshot argo ](images/architect.png?raw=true "POST")
+
+
 ## Instalacion de argo en local:
 
  ![Screenshot argo ](images/argo-pods.png?raw=true "POST")
@@ -9,7 +15,7 @@
 
 ## Github Action con ChatBot 
 
- 
+ ![Screenshot argo ](images/github-action.png?raw=true "POST")
 
 
 ## Pasos a realizar
