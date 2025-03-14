@@ -1,4 +1,4 @@
-name: Deploy with github action  via Argo
+name: Deploy to PaaS via Argo Workflow
 
 on:
   issue_comment:
@@ -6,42 +6,43 @@ on:
 
 jobs:
   deploy:
-    if: github.event.issue.pull_request
     runs-on: ubuntu-latest
+    if: contains(github.event.comment.body, '/deploy-paas')
     steps:
+
       - name: Extract PR Command
-        id: extract_command
-        run: echo "::set-output name=comment_body::$(echo '${{ github.event.comment.body }}' | tr -d '\n' | tr -d '\r')"
+        run: |
+          COMMENT="${{ github.event.comment.body }}"
+          echo "COMMAND=$COMMENT" >> $GITHUB_ENV
 
       - name: Check for Deploy Command
-        id: check_command
         run: |
-          COMMENT="${{ steps.extract_command.outputs.comment_body }}"
-          if [[ "$COMMENT_BODY" == '/deploy minikube' ]]; then
-            echo "::set-output name=should_run::true"
+          if [[ "$COMMAND" =~ /deploy-paas ]]; then
+            echo "DEPLOY=true" >> $GITHUB_ENV
           else
-            echo "::set-output name=comment_body::false"
+            echo "DEPLOY=false" >> $GITHUB_ENV
           fi
 
+      - name: Stop Execution if No Deploy Command
+        if: env.DEPLOY == 'false'
+        run: echo "No valid deploy command detected. Exiting..." && exit 1
+
       - name: Checkout repository
-        if: steps.extract_command.outputs.comment_body == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Install Argo CLI
-        if: steps.extract_command.outputs.comment_body == 'true'
         run: |
           curl -sLO https://github.com/argoproj/argo-workflows/releases/latest/download/argo-linux-amd64
-          chmod +x argo
-          sudo mv argo /usr/local/bin/
+          chmod +x argo-linux-amd64
+          sudo mv argo-linux-amd64 /usr/local/bin/argo
+          argo version
 
       - name: Configure Kubeconfig for Minikube (Remote)
-        if: steps.extract_command.outputs.comment_body == 'true'
         run: |
-          echo "${{ secrets.KUBECONFIG_DATA }}" | base64 --decode > ~/.kube/config
-          chmod 600 ~/.kube/config
-          
+          echo "${{ secrets.KUBECONFIG_BASE64 }}" | base64 -d > kubeconfig.yaml
+          export KUBECONFIG=$PWD/kubeconfig.yaml
+          kubectl config current-context
+
       - name: Submit Argo Workflow
-        if: steps.extract_command.outputs.comment_body == 'true'
         run: |
-          export ARGO_SERVER="${{ secrets.NGROK_URL }}"
-          argo submit --watch --server $ARGO_SERVER --namespace argo deploy-workflow.yaml
+          argo submit --namespace default --watch deploy-workflow.yaml
