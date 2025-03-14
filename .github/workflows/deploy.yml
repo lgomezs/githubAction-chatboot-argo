@@ -47,5 +47,4 @@ jobs:
       - name: Submit Argo Workflow
         run: |
           argo submit --namespace default --watch deploy-workflow.yaml
-
           
