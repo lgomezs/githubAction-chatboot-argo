@@ -1,0 +1,47 @@
+name: Deploy with github action  via Argo
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  deploy:
+    if: github.event.issue.pull_request
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract PR Command
+        id: extract_command
+        run: echo "::set-output name=comment_body::$(echo '${{ github.event.comment.body }}' | tr -d '\n' | tr -d '\r')"
+
+      - name: Check for Deploy Command
+        id: check_command
+        run: |
+          COMMENT="${{ steps.extract_command.outputs.comment_body }}"
+          if [[ "$COMMENT_BODY" == '/deploy minikube' ]]; then
+            echo "::set-output name=should_run::true"
+          else
+            echo "::set-output name=comment_body::false"
+          fi
+
+      - name: Checkout repository
+        if: steps.extract_command.outputs.comment_body == 'true'
+        uses: actions/checkout@v4
+
+      - name: Install Argo CLI
+        if: steps.extract_command.outputs.comment_body == 'true'
+        run: |
+          curl -sLO https://github.com/argoproj/argo-workflows/releases/latest/download/argo-linux-amd64
+          chmod +x argo
+          sudo mv argo /usr/local/bin/
+
+      - name: Configure Kubeconfig for Minikube (Remote)
+        if: steps.extract_command.outputs.comment_body == 'true'
+        run: |
+          echo "${{ secrets.KUBECONFIG_DATA }}" | base64 --decode > ~/.kube/config
+          chmod 600 ~/.kube/config
+          
+      - name: Submit Argo Workflow
+        if: steps.extract_command.outputs.comment_body == 'true'
+        run: |
+          export ARGO_SERVER="${{ secrets.NGROK_URL }}"
+          argo submit --watch --server $ARGO_SERVER --namespace argo deploy-workflow.yaml

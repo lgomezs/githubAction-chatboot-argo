@@ -1,0 +1,123 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: deploy-app-
+spec:
+  entrypoint: deploy
+  arguments:
+    parameters:
+      - name: image-tag
+        value: 0.0.1-SNAPSHOT
+  volumes:
+    - name: workspace-volume
+      persistentVolumeClaim:
+        claimName: workspace-pvc
+    - name: docker-socket
+      hostPath:
+        path: /var/run/docker.sock
+
+  templates:
+    - name: deploy
+      steps:
+        - - name: build-app
+            template: build-app
+        - - name: build-and-push
+            template: build-push-image
+        - - name: deploy-to-minikube
+            template: deploy-to-minikube
+
+    - name: build-app
+      container:
+        image: maven:3.8.6-eclipse-temurin-17
+        command: [ "sh", "-c" ]
+        args:
+          - |
+            echo "Clonando repositorio..."
+            mkdir -p /workspace
+            git clone https://github.com/lgomezs/appBackArticle /workspace
+            cd /workspace
+            echo "Ejecutando mvn clean install..."
+            mvn clean install -DskipTests
+            echo "Verificando archivos generados..."
+            ls -la target
+        volumeMounts:
+          - name: workspace-volume
+            mountPath: /workspace
+
+    - name: build-push-image
+      container:
+        image: docker:latest
+        securityContext:
+          privileged: true
+        command: [ "sh", "-c" ]
+        args:
+          - |           
+            echo "Autenticando en Docker Hub..."
+            echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+            echo "Construyendo la imagen Docker..."
+            docker build -t lgomezs/customer-microservice:{{workflow.parameters.image-tag}} -f /workspace/Dockerfile /workspace
+            echo "Subiendo la imagen a Docker Hub..."
+            docker push lgomezs/customer-microservice:{{workflow.parameters.image-tag}}
+        env:
+        - name: DOCKER_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: docker-hub-secret
+              key: username
+        - name: DOCKER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: docker-hub-secret
+              key: password
+        volumeMounts:
+          - name: workspace-volume
+            mountPath: /workspace
+          - name: docker-socket
+            mountPath: /var/run/docker.sock
+
+    - name: deploy-to-minikube
+      container:
+        image: bitnami/kubectl:latest
+        command: [ "sh", "-c" ]
+        args:
+          - |
+            echo "Creando Deployment y Service en Minikube..."
+            cat <<EOF | kubectl apply -f -
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: customer-microservice
+              namespace: application
+            spec:
+              replicas: 1
+              selector:
+                matchLabels:
+                  app: customer-microservice
+              template:
+                metadata:
+                  labels:
+                    app: customer-microservice
+                spec:
+                  containers:
+                    - name: customer-microservice
+                      image: lgomezs/customer-microservice:{{workflow.parameters.image-tag}}
+                      ports:
+                        - containerPort: 8080
+            ---
+            apiVersion: v1
+            kind: Service
+            metadata:
+              name: customer-microservice
+              namespace: application
+            spec:
+              selector:
+                app: customer-microservice
+              ports:
+                - protocol: TCP
+                  port: 80
+                  targetPort: 8080
+              type: NodePort
+            EOF
+        volumeMounts:
+          - name: workspace-volume
+            mountPath: /workspace
