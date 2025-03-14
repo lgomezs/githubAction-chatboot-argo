@@ -1,9 +1,18 @@
 
+## Instalacion de argo en local:
 
  ![Screenshot argo ](images/argo-pods.png?raw=true "POST")
 
+## Flujo argo para desplegar en minikube:
+
  ![Screenshot argo ](images/argo-workflow.png?raw=true "POST")
 
+## Github Action con ChatBot 
+
+ 
+
+
+## Pasos a realizar
 
 1. instalar minikube
     https://minikube.sigs.k8s.io/docs/start/?arch=%2Flinux%2Fx86-64%2Fstable%2Fbinary+download
