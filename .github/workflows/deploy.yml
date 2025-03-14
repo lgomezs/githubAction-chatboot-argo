@@ -47,6 +47,6 @@ jobs:
 
       - name: Submit Argo Workflow
         run: |
-          argo submit deploy-workflow.yaml --namespace argo
-          
-                    
+           argo version
+          # argo submit deploy-workflow.yaml --namespace argo -> se ejecuta argo para un kubeconfig en la nube
+
