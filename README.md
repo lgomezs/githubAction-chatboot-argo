@@ -92,7 +92,7 @@
 
  # Configurar GitHub Secrets
 
-   Crear el secreto KUBECONFIG_DATA, con el kubeconfig.
+   Crear el secreto KUBECONFIG_BASE64, con el kubeconfig.
 
     cat ~/.kube/config | base64 
      
