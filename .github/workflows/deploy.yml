@@ -43,10 +43,9 @@ jobs:
           echo "${{ secrets.KUBECONFIG_BASE64 }}" | base64 -d > kubeconfig.yaml
           export KUBECONFIG=$PWD/kubeconfig.yaml
           kubectl config current-context
+          kubectl config view
 
       - name: Submit Argo Workflow
         run: |
-          argo submit --namespace default --watch deploy-workflow.yaml
-
-
+          argo submit deploy-workflow.yaml --namespace argo
           
