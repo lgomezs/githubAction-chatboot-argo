@@ -32,10 +32,11 @@ jobs:
 
       - name: Install Argo CLI
         run: |
-          curl -sLO https://github.com/argoproj/argo-cd/releases/download/v2.14.5/argocd-linux-amd64
-          chmod +x argocd-linux-amd64
-          sudo mv argocd-linux-amd64 /usr/local/bin/argo
-          argo version || echo "Argo CLI failed to install!"
+         ARGO_VERSION=$(curl --silent "https://api.github.com/repos/argoproj/argo-workflows/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
+         curl -sLO https://github.com/argoproj/argo-workflows/releases/download/${ARGO_VERSION}/argo-linux-amd64
+         chmod +x argo-linux-amd64
+         sudo mv argo-linux-amd64 /usr/local/bin/argo
+         argo version
 
       - name: Configure Kubeconfig for Minikube (Remote)
         run: |
@@ -46,6 +47,5 @@ jobs:
       - name: Submit Argo Workflow
         run: |
           argo submit --namespace default --watch deploy-workflow.yaml
-          
 
           
